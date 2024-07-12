@@ -581,7 +581,7 @@ async function floatingContactRender(contactid){
  * It loads the contacts from the local storage and displays them on the contacts.html page.
  */
 document.addEventListener('DOMContentLoaded', async (event) => {
-    await initUser();
+    // await initUser();
     loadContacts();
 });
 

@@ -41,7 +41,7 @@ function rollDice() {
  * add event listener for dom content loaded event to initialize functions
  */
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadUsers();
+    // await loadUsers();
     loadLoginData();
 })
 
@@ -49,13 +49,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 /**
  * fetch users array
  */
-async function loadUsers() {
-    try {
-        users = JSON.parse(await getItem('users'));
-    } catch (e) {
-        console.error('Loading Users error:', e);
-    }
-}
+// async function loadUsers() {
+    
+//     try {
+//         users = JSON.parse(await getItem('users'));
+//     } catch (e) {
+//         console.error('Loading Users error:', e);
+//     }
+// }
 
 /**
  * set all users inside the user object to false if guest login, then forward to summary
@@ -79,40 +80,51 @@ async function login() {
     let passwordLogin = document.getElementById('password-login').value;
 
     let user = {
-        'username': emailLogin,  // Benutzername oder E-Mail für die Authentifizierung
+        'email': emailLogin,
         'password': passwordLogin
     };
 
     try {
-        const response = await fetch('http://127.0.0.1:8000/login/', {
+        const response = await fetch('http://127.0.0.1:8000/api/login/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 'email': emailLogin, 'password': passwordLogin }),
+            body: JSON.stringify(user),
         });
 
-        if (response.ok) {
+        if (!response.ok) {
             const data = await response.json();
-            console.log('Login successful!');
-            console.log('User ID:', data.user_id);
-            console.log('Email:', data.email);
-            console.log('Token:', data.token);
-
-            // Speichern des Tokens im localStorage oder Cookie
-            localStorage.setItem('token', data.token);
-
-            // Weiterleitung oder andere Logik nach erfolgreichem Login
-            window.open('summary.html', '_self');
-        } else {
-            const data = await response.json();
-            alert(`Login failed: ${JSON.stringify(data)}`);
+            console.error('Login failed:', data);
+            alert('Login failed. Please check your credentials and try again.');
+            return;
         }
+
+        const data = await response.json();
+        console.log('Login successful!');
+        console.log('User ID:', data.user_id);
+        console.log('Name:', data.username);
+        console.log('Email:', data.email);
+        console.log('Token:', data.token);
+
+        // Speichern der Daten im localStorage
+        localStorage.setItem('userId', data.user_id);  // Benutzer-ID
+        localStorage.setItem('userEmail', data.email); // Benutzer-E-Mail
+        localStorage.setItem('token', data.token);     // Token
+        localStorage.setItem('userInitials', data.username[0].toUpperCase()); // Initialen speichern
+
+        // Laden der Benutzerdaten nach erfolgreichem Login (falls benötigt)
+        // await loadUsers();
+debugger
+        // Weiterleitung oder andere Logik nach erfolgreichem Login
+        window.open('summary.html', '_self');
+
     } catch (error) {
         console.error('Error during login:', error);
         alert('Login failed. Please try again.');
     }
 }
+
 
 
 /**

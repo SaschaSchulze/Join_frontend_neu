@@ -13,6 +13,7 @@ users = [];
  */
 async function initHead() {
     await loadUsers();
+    initUserID();  // Initialize user ID
     userInitials();
 }
 
@@ -21,7 +22,12 @@ async function initHead() {
  */
 async function loadUsers() {
     try {
-        users = JSON.parse(await getItem('users'));
+        let usersData = await getItem('users');
+        if (typeof usersData === 'string') {
+            users = JSON.parse(usersData);
+        } else {
+            users = usersData; // Falls usersData bereits ein Objekt ist
+        }
     } catch (e) {
         console.error('Loading Users error: ', e);
     }
@@ -70,19 +76,20 @@ async function logout() {
 
 
 /**
-* Show users Initials
-*/
+ * Show user's Initials
+ */
 function userInitials() {
     let isUserFound = false;
+    let currentUserId = localStorage.getItem('userId'); // Benutzer-ID
     for (let i = 0; i < users.length; i++) {
         let user = users[i];
-        if (user["isYou"]) {
-            document.getElementById("userInitials").innerHTML = `${user["initials"]}`;
+        if (user["id"] == currentUserId) { // Vergleich als Zahl, da localStorage immer als String speichert
+            document.getElementById("userInitials").innerHTML = `${user["username"][0].toUpperCase()}`;
             isUserFound = true;
             break;
         }
     }
     if (!isUserFound) {
-        document.getElementById("userInitials").innerHTML = "G";
+        document.getElementById("userInitials").innerHTML = "G"; // Default-Wert, falls Benutzer nicht gefunden wird
     }
 }
