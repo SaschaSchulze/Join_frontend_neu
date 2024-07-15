@@ -28,7 +28,7 @@ function initUserID() {
 
     for (let i = 0; i < users.length; i++) {
         let user = users[i];
-        console.log('Checking user:', user);
+        // console.log('Checking user:', user);
 
         if (user["id"] == currentUserId) { // Vergleich als Zahl, da localStorage immer als String speichert
             currentUser = user;

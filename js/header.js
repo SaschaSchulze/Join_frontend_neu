@@ -84,7 +84,7 @@ function userInitials() {
     console.log('Current User ID from localStorage:', currentUserId); // Debugging log
     for (let i = 0; i < users.length; i++) {
         let user = users[i];
-        console.log('Checking user:', user); // Debugging log
+        // console.log('Checking user:', user); // Debugging log
         if (user["id"] == currentUserId) { // Vergleich als Zahl, da localStorage immer als String speichert
             document.getElementById("userInitials").innerHTML = `${user["username"][0].toUpperCase()}`;
             console.log('Logged in user found:', user); // Debugging log
