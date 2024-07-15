@@ -21,11 +21,11 @@ function addContact() {
     overlay = document.createElement("div");
     overlay.id = "overlay";
     document.body.appendChild(overlay);
-    
+
     contactModal = document.createElement("div");
     contactModal.id = "contactModal";
     document.body.appendChild(contactModal);
-    
+
     let formDiv = document.createElement("div");
     contactModal.innerHTML += addcontact_innerHTML;
     contactModal.appendChild(formDiv);
@@ -167,73 +167,111 @@ window.loadContacts = loadContacts;
  * This function loads the contacts from the local storage and displays them on the contacts.html page.
  */
 async function loadContacts() {
-    let contacts;
+    try {
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        let isUserLoggedIn = !!currentUser;
+        let contacts = [];
 
-    if (isUserLoggedIn) {
-        let users = JSON.parse(await getItem('users'));
-        if (users[currentUser]) {
-            contacts = users[currentUser].contacts;
-        } else {
-            console.error('User not found:', currentUser);
-        }
-    } else {
-        contacts = JSON.parse(localStorage.getItem('contacts')) || [];
-    }
+        console.log('Logged in user:', currentUser);
+        console.log('Is user logged in:', isUserLoggedIn);
 
-    let lastInitial;
+        // Laden der vorhandenen Kontakte aus dem Local Storage
+        let storedContacts = JSON.parse(localStorage.getItem('contacts')) || [];
+        contacts = Array.isArray(storedContacts) ? storedContacts : [];
 
-    function createContactHTML(contact) {
-        let initialLetterHTML = '';
-        let currentInitial = contact.name.charAt(0).toUpperCase();
-        if (currentInitial !== lastInitial) {
-            initialLetterHTML = `<div class="initial_letter">${currentInitial}</div>
-            <div class="line"><svg xmlns="http://www.w3.org/2000/svg" width="354" height="2" viewBox="0 0 354 2" fill="none"><path d="M1 1H353" stroke="#D1D1D1" stroke-linecap="round"/></svg></div>`;
-            lastInitial = currentInitial;
-        }
+        // Wenn eingeloggt, füge den aktuellen Benutzer zu den Kontakten hinzu
+        if (isUserLoggedIn) {
+            let users = JSON.parse(localStorage.getItem('users')) || {};
 
-        if (currentUser !== undefined && users[currentUser] && users[currentUser].firstName) {
-            if (contact.name === users[currentUser].firstName) {
-                contact.name += " (You)";
+            // console.log('Loaded users:', users);
+
+            // Erstellen oder aktualisieren des aktuellen Benutzerkontakts
+            if (users[currentUser.username]) {
+                let currentUserContact = {
+                    id: currentUser.userId,
+                    name: `${currentUser.firstName} ${currentUser.lastName}`,
+                    email: currentUser.email,
+                    avatarid: 1 // Avatar-ID für den Benutzer
+                };
+
+                // Überprüfen, ob der Benutzer bereits in den Kontakten enthalten ist
+                let existingUserIndex = contacts.findIndex(contact => contact.id === currentUserContact.id);
+                if (existingUserIndex === -1) {
+                    contacts.push(currentUserContact);
+                }
+            } else {
+                console.log('Current user data not found in users:', currentUser.username);
             }
         }
 
-        return `
-            ${initialLetterHTML}
-            <div class="contactentry" id=${contact.id}>
-                <div class="avatar">
-                    <img src="img/Ellipse5-${contact.avatarid}.svg"></img>
-                    <div class="avatar_initletter">${contact.name.split(' ').map(n => n[0].toUpperCase()).join('')}</div>
-                </div>
-                <div class="contactentry_info">
-                    <div class="contactentry_name">${contact.name}</div>
-                    <div class="contactentry_email">${contact.email}</div>
-                </div>
-            </div>
-        `;
-    }
+        // Sortieren der Kontakte alphabetisch nach dem Namen
+        contacts.sort((a, b) => a.name.localeCompare(b.name));
 
-    let contactsHTML = '';
+        // console.log('Sorted contacts:', contacts);
 
-    for (let contact of contacts) {
-        contactsHTML += createContactHTML(contact);
-    }
+        // HTML für die Kontakte erstellen
+        let contactsHTML = contacts.map(contact => createContactHTML(contact, users, currentUser)).join('');
 
-    document.querySelector('.contacts_container').innerHTML += contactsHTML;
+        // Kontakte in das DOM einfügen
+        document.querySelector('.contacts_container').innerHTML = contactsHTML;
 
-    for (let contact of contacts) {
-        let contactElement = document.getElementById(contact.id);
+        // Event Listener nach dem Rendern der Kontakte hinzufügen
+        contacts.forEach(contact => {
+            let contactElement = document.getElementById(contact.id);
 
-        contactElement.addEventListener('click', function() {
-            let contactEntries = document.querySelectorAll('.contactentry');
-            for (let entry of contactEntries) {
-                entry.classList.remove('contact_selected');
+            if (contactElement) {
+                contactElement.addEventListener('click', () => {
+                    // Alle Kontaktelemente zurücksetzen
+                    document.querySelectorAll('.contactentry').forEach(entry => {
+                        entry.classList.remove('contact_selected');
+                    });
+
+                    // Das ausgewählte Kontaktelement markieren
+                    contactElement.classList.add('contact_selected');
+
+                    console.log('Selected contact:', contact);
+                    floatingContactRender(contact.id);
+                });
             }
-
-            contactElement.classList.add('contact_selected');
-            floatingContactRender(contact.id);
         });
+    } catch (error) {
+        console.error('Error loading contacts:', error);
     }
 }
+
+function createContactHTML(contact, users, currentUser) {
+    let lastInitial = ''; // Hier wird die Variable initialisiert
+
+    let initialLetterHTML = '';
+    let currentInitial = contact.name.charAt(0).toUpperCase();
+    if (currentInitial !== lastInitial) {
+        initialLetterHTML = `<div class="initial_letter">${currentInitial}</div>
+        <div class="line"><svg xmlns="http://www.w3.org/2000/svg" width="354" height="2" viewBox="0 0 354 2" fill="none"><path d="M1 1H353" stroke="#D1D1D1" stroke-linecap="round"/></svg></div>`;
+        lastInitial = currentInitial;
+    }
+
+    if (currentUser && users && users[currentUser.username] && users[currentUser.username].firstName) {
+        if (contact.name === `${currentUser.firstName} ${currentUser.lastName}`) {
+            contact.name += " (You)";
+        }
+    }
+
+    return `
+        ${initialLetterHTML}
+        <div class="contactentry" id="${contact.id}">
+            <div class="avatar">
+                <img src="img/Ellipse5-${contact.avatarid}.svg"></img>
+                <div class="avatar_initletter">${contact.name.split(' ').map(n => n[0].toUpperCase()).join('')}</div>
+            </div>
+            <div class="contactentry_info">
+                <div class="contactentry_name">${contact.name}</div>
+                <div class="contactentry_email">${contact.email}</div>
+            </div>
+        </div>
+    `;
+}
+
+
 
 window.editContact = editContact;
 
@@ -242,18 +280,46 @@ window.editContact = editContact;
  * It creates a modal window with a form to edit a contact.
  * @param {*} contactid
  */
-async function editContact(contactid){
-    let contacts;
+async function editContact(contactid) {
 
+    let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+    let isUserLoggedIn = !!currentUser;
+
+    console.log('Current user:', currentUser);
+    console.log('Is user logged in:', isUserLoggedIn);
+
+    let contacts = [];
+
+    console.log('Current User:', currentUser);
+
+    // Load contacts from localStorage
+    let storedContacts = JSON.parse(localStorage.getItem('contacts'));
+    if (Array.isArray(storedContacts)) {
+        contacts = storedContacts;
+    }
+
+    console.log('Contacts array:', storedContacts);
+
+    // Check if the currentUser is already in contacts
     if (isUserLoggedIn) {
-        let users = JSON.parse(await getItem('users'));
-        if (users[currentUser]) {
-            contacts = users[currentUser].contacts;
-        } else {
-            console.error('User not found:', currentUser);
+        let currentUserContact = {
+            id: currentUser.userId.toString(), // Convert to string for consistent comparison
+            name: `${currentUser.firstName} ${currentUser.lastName}`,
+            email: currentUser.email,
+            avatarid: 1, // Adjust the avatar ID accordingly
+            phone: '' // Assuming phone field, adjust if necessary
+        };
+
+        let existingUserIndex = contacts.findIndex(contact => contact.id.toString() === currentUserContact.id);
+        if (existingUserIndex === -1) {
+            contacts.push(currentUserContact);
         }
-    } else {
-        contacts = JSON.parse(localStorage.getItem('contacts')) || [];
+    }
+
+    // Ensure contacts is initialized or handle appropriately
+    if (!contacts) {
+        console.error('Contacts not initialized or empty.');
+        return;
     }
 
     let contact = contacts.find(contact => contact.id === contactid);
@@ -269,15 +335,15 @@ async function editContact(contactid){
 
         let avatarContainerDiv = document.createElement("div");
         avatarContainerDiv.classList.add("avatar_container");
-        
+
         let avatarDiv = document.createElement("div");
         avatarDiv.classList.add("avatar_contactModal");
-        
+
         let avatarHTML = `
         <img class="avatar_contactModal" src="img/Ellipse5-${contact.avatarid}.svg"></img>
         <div class="avatar_contactModal_initletter">${contact.name.charAt(0).toUpperCase()}</div>
         `;
-        
+
         avatarDiv.innerHTML += avatarHTML;
         avatarContainerDiv.appendChild(avatarDiv);
         contactModal.appendChild(avatarContainerDiv);
@@ -324,61 +390,75 @@ async function editContact(contactid){
     }
 }
 
+
 window.saveEditedContact = saveEditedContact;
 
 /**
  * This function is called when the user clicks on the "Save" button in the modal window. It saves the edited contact to the local storage.
  * @param {*} contactid
  */
-async function saveEditedContact(contactid) {
+async function saveEditedContact(contactid, currentUser) {
     let form = document.getElementById('editcontact_form');
+    if (!form) {
+        console.error('Form element not found.');
+        return;
+    }
+
+    let isUserLoggedIn = !!currentUser;
 
     if (form.checkValidity()) {
-        let contacts;
+        try {
+            let contacts;
 
-        if (isUserLoggedIn) {
-            let users = JSON.parse(await getItem('users'));
-            if (users[currentUser]) {
-                contacts = users[currentUser].contacts;
-            } else {
-                console.error(`No contact found with ID ${contactid}.`);
-            }
-        } else {
-            contacts = JSON.parse(localStorage.getItem('contacts')) || [];
-        }
-
-        let contact = contacts.find(contact => contact.id === contactid);
-
-        if (contact) {
-            let name = document.getElementById('name').value;
-            let email = document.getElementById('email').value;
-            let phone = document.getElementById('phone').value;
-
-            contact.name = name;
-            contact.email = email;
-            contact.phone = phone;
-            
-            contacts.sort((a, b) => a.name.localeCompare(b.name));
-            if (isUserLoggedIn) {
+            if (isUserLoggedIn && currentUser.userId) {
                 let users = JSON.parse(await getItem('users'));
-                users[currentUser].contacts = contacts;
-                await setItem('users', JSON.stringify(users));
+                if (users[currentUser.userId]) {
+                    contacts = users[currentUser.userId].contacts;
+                } else {
+                    console.error(`No contacts found for user with ID ${currentUser.userId}.`);
+                    return;
+                }
             } else {
-                localStorage.setItem('contacts', JSON.stringify(contacts));
+                contacts = JSON.parse(localStorage.getItem('contacts')) || [];
             }
 
-            closeContactModal();
+            // Find the contact with the specified ID (converted to string for consistency)
+            contactid = contactid.toString();
+            let contact = contacts.find(contact => contact.id === contactid);
 
-            reloadContacts();
-            floatingContactRender(contactid);
-        }
-        else {
-            console.log(`No contact found with ID ${contactid}.`);
+            if (contact) {
+                // Update contact details
+                contact.name = document.getElementById('name').value;
+                contact.email = document.getElementById('email').value;
+                contact.phone = document.getElementById('phone').value;
+
+                // Sort contacts by name
+                contacts.sort((a, b) => a.name.localeCompare(b.name));
+
+                // Update local storage or backend storage based on user login status
+                if (isUserLoggedIn && currentUser.userId) {
+                    let users = JSON.parse(await getItem('users'));
+                    users[currentUser.userId].contacts = contacts;
+                    await setItem('users', JSON.stringify(users));
+                } else {
+                    localStorage.setItem('contacts', JSON.stringify(contacts));
+                }
+
+                // Close modal, reload contacts list, and update UI
+                closeContactModal();
+                reloadContacts();
+                floatingContactRender(contactid);
+            } else {
+                console.log(`No contact found with ID ${contactid}.`);
+            }
+        } catch (error) {
+            console.error('Error saving edited contact:', error);
         }
     } else {
         form.reportValidity();
     }
 }
+
 
 window.delContact = delContact;
 
@@ -429,7 +509,7 @@ window.showMoreMenu = showMoreMenu;
 function showMoreMenu(event) {
     let elements = document.querySelectorAll(".contact-editmenu_entriy_mobile, .contact-editmenu_mobile");
 
-    elements.forEach(function(element) {
+    elements.forEach(function (element) {
         let currentDisplay = window.getComputedStyle(element).display;
         if (currentDisplay === "none") {
             element.style.display = "flex";
@@ -463,7 +543,7 @@ function hideMenuOnClickOutside(event) {
         }
     }
 
-    elements.forEach(function(element) {
+    elements.forEach(function (element) {
         element.style.display = "none";
     });
 
@@ -489,92 +569,125 @@ function clearFloatingContact() {
  * This function renders the floating contact window with the contact information.
  * @param {*} contactid
  */
-async function floatingContactRender(contactid){
-    let contacts;
+async function floatingContactRender(contactid) {
+    try {
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        let isUserLoggedIn = !!currentUser;
+        let users;
+        let contacts = [];
 
-    if (isUserLoggedIn) {
-        let users = JSON.parse(await getItem('users'));
-        if (users[currentUser]) {
-            contacts = users[currentUser].contacts;
-        } else {
-            console.error('User not found:', currentUser);
+        console.log('Current user:', currentUser);
+        console.log('Is user logged in:', isUserLoggedIn);
+
+        // Load contacts from localStorage
+        let storedContacts = JSON.parse(localStorage.getItem('contacts'));
+        if (Array.isArray(storedContacts)) {
+            contacts = storedContacts;
         }
-    } else {
-        contacts = JSON.parse(localStorage.getItem('contacts')) || [];
-    }
 
-    let contact = contacts.find(contact => contact.id === contactid);
+        if (isUserLoggedIn) {
+            users = JSON.parse(localStorage.getItem('users'));
 
-    if (contact) {
-        if (currentUser !== undefined && users[currentUser] && users[currentUser].firstName) {
-            if (contact.name === users[currentUser].firstName) {
-                contact.name += " (You)";
+            console.log('Loaded users:', users);
+
+            if (!users || !users[currentUser.username]) {
+                console.error('User not found:', currentUser);
+                return;
+            }
+
+            let existingUserIndex = contacts.findIndex(contact => contact.id === currentUser.userId.toString());
+            if (existingUserIndex === -1) {
+                contacts.push({
+                    id: currentUser.userId.toString(),
+                    name: `${currentUser.firstName} ${currentUser.lastName}`,
+                    email: currentUser.email,
+                    avatarid: 1, // Anpassen der Avatar-ID falls erforderlich
+                    phone: '' // Hinzufügen der Telefonnummer falls erforderlich
+                });
             }
         }
 
-        let floating_contactHTML = `
-        <div class="floating_contact">
-            <div class="floating_contact_avatar">
-                <img src="img/Ellipse5-${contact.avatarid}.svg"></img>
-                    <div class="floating_contact_initletter">${contact.name.charAt(0).toUpperCase()}</div>
-                </img>
-            </div>
-            <div class="column">
-            <div class="floating_contact_name">${contact.name}</div>
-            <div class="row">
-                <div class="floating_contact_buttons" onclick="editContact('${contact.id}')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="edit"><mask id="mask0_130935_4276" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4276)"><path id="edit_2" d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/></g></g>
-                </svg>
-                    Edit
-                </div>
-                <div class="floating_contact_buttons" onclick="delContact('${contact.id}')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="delete"><mask id="mask0_130935_4270" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4270)"><path id="delete_2" d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/></g></g>
-                </svg>
-                    Delete
-                </div>
-            </div>
-            </div>
-        </div>
-        <br>
-        <div class="floating_contact_info">Contact Information</div>
-        <br>
-        <div class="floating_contact_email">
-            <div class="floating_contact_emailtext">Email</div>
-            <div class="floating_contact_emailadresse">${contact.email}</div>
-        </div>
-        <br>
-        <div class="floating_contact_phone">
-            <div class="floating_contact_phonetext">Phone</div>
-            <div class="floating_contact_phonenumber">${contact.phone}</div>
-        </div>
-        <div class="more_button_mobile" onclick='showMoreMenu(event)'><img src="img/more.svg"></img></div>
-        <div class="contact-editmenu_mobile">
-            <div class="contact-editmenu_entriy_mobile" onclick="editContact('${contact.id}')">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="edit"><mask id="mask0_130935_4276" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4276)"><path id="edit_2" d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/></g></g>
-            </svg>
-                Edit
-            </div>
-            <div class="contact-editmenu_entriy_mobile" onclick="delContact('${contact.id}')">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="delete"><mask id="mask0_130935_4270" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4270)"><path id="delete_2" d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/></g></g>
-            </svg>
-                Delete
-            </div>
-        </div>
-        `;
+        let contact = contacts.find(contact => contact.id === contactid);
 
-        let floating_contactElement = document.getElementById("floating_contact");
+        if (contact) {
+            // Modify contact name if currentUser matches contact
+            if (currentUser && users && users[currentUser.username] && users[currentUser.username].firstName) {
+                if (contact.name === `${currentUser.firstName} ${currentUser.lastName}`) {
+                    contact.name += " (You)";
+                }
+            }
 
-        while (floating_contactElement.firstChild) {
-            floating_contactElement.removeChild(floating_contactElement.firstChild);
+            let floating_contactHTML = `
+                <div class="floating_contact">
+                    <div class="floating_contact_avatar">
+                        <img src="img/Ellipse5-${contact.avatarid}.svg" alt="Avatar"></img>
+                        <div class="floating_contact_initletter">${contact.name.charAt(0).toUpperCase()}</div>
+                    </div>
+                    <div class="column">
+                        <div class="floating_contact_name">${contact.name}</div>
+                        <div class="row">
+                            <div class="floating_contact_buttons" onclick="editContact('${contact.id}')">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/>
+                                </svg>
+                                Edit
+                            </div>
+                            <div class="floating_contact_buttons" onclick="delContact('${contact.id}')">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/>
+                                </svg>
+                                Delete
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <br>
+                <div class="floating_contact_info">Contact Information</div>
+                <br>
+                <div class="floating_contact_email">
+                    <div class="floating_contact_emailtext">Email</div>
+                    <div class="floating_contact_emailadresse">${contact.email}</div>
+                </div>
+                <br>
+                <div class="floating_contact_phone">
+                    <div class="floating_contact_phonetext">Phone</div>
+                    <div class="floating_contact_phonenumber">${contact.phone}</div>
+                </div>
+                <div class="more_button_mobile" onclick='showMoreMenu(event)'><img src="img/more.svg" alt="More"></img></div>
+                <div class="contact-editmenu_mobile">
+                    <div class="contact-editmenu_entriy_mobile" onclick="editContact('${contact.id}')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/>
+                        </svg>
+                        Edit
+                    </div>
+                    <div class="contact-editmenu_entriy_mobile" onclick="delContact('${contact.id}')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/>
+                        </svg>
+                        Delete
+                    </div>
+                </div>
+            `;
+
+            let floating_contactElement = document.getElementById("floating_contact");
+
+            // Löschen Sie alle vorhandenen Kinder des floating_contactElements
+            while (floating_contactElement.firstChild) {
+                floating_contactElement.removeChild(floating_contactElement.firstChild);
+            }
+
+            // Fügen Sie das neue HTML-Element hinzu
+            let floating_contactDiv = document.createElement("div");
+            floating_contactDiv.innerHTML = floating_contactHTML;
+            floating_contactElement.appendChild(floating_contactDiv);
+        } else {
+            console.log(`No contact found with ID ${contactid}.`);
         }
-
-        let floating_contactDiv = document.createElement("div");
-        floating_contactDiv.innerHTML = floating_contactHTML;
-        floating_contactElement.appendChild(floating_contactDiv);
-    } else {
-        console.log(`No contact found with ID ${contactid}.`);
+    } catch (error) {
+        console.error('Error rendering floating contact:', error);
     }
-} 
+}
 
 /**
  * This function is called when the contacts page is loaded. 
@@ -590,6 +703,6 @@ document.addEventListener('DOMContentLoaded', async (event) => {
  * It hides the floating contact window.
  * only for mobile visible
  */
-window.addEventListener('resize', function() {
+window.addEventListener('resize', function () {
     isMobile = window.innerWidth <= 1385;
 });

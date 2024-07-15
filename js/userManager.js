@@ -31,7 +31,7 @@ function initUserID() {
         console.log('Checking user:', user);
 
         if (user["id"] == currentUserId) { // Vergleich als Zahl, da localStorage immer als String speichert
-            currentUser = user["id"];
+            currentUser = user;
             isUserLoggedIn = true;
             console.log('Logged in as:', currentUser);
             console.log('Logged in user found:', user);
@@ -62,7 +62,7 @@ async function loadData() {
       } else {
         users = usersData; // Falls usersData bereits ein Objekt ist
       }
-      console.log(users);
+    //   console.log(users);
     } catch (e) {
       console.error('Loading Data error:', e);
     }

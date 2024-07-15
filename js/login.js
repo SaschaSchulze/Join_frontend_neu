@@ -112,9 +112,13 @@ async function login() {
         localStorage.setItem('userEmail', data.email); // Benutzer-E-Mail
         localStorage.setItem('token', data.token);     // Token
         localStorage.setItem('userInitials', data.username[0].toUpperCase()); // Initialen speichern
-
-        // Laden der Benutzerdaten nach erfolgreichem Login (falls benötigt)
-        // await loadUsers();
+        localStorage.setItem('currentUser', JSON.stringify({
+            userId: data.user_id,
+            username: data.username,
+            email: data.email,
+            firstName: data.firstName, // Falls verfügbar, je nach API-Antwort
+            lastName: data.lastName   // Falls verfügbar, je nach API-Antwort
+        }));
 debugger
         // Weiterleitung oder andere Logik nach erfolgreichem Login
         window.open('summary.html', '_self');
