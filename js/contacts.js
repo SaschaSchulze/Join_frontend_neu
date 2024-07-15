@@ -172,26 +172,25 @@ async function loadContacts() {
         let isUserLoggedIn = !!currentUser;
         let contacts = [];
 
-        console.log('Logged in user:', currentUser);
+        console.log('Current user:', currentUser);
         console.log('Is user logged in:', isUserLoggedIn);
 
         // Laden der vorhandenen Kontakte aus dem Local Storage
-        let storedContacts = JSON.parse(localStorage.getItem('contacts')) || [];
+        let storedContacts = JSON.parse(localStorage.getItem('contacts'));
         contacts = Array.isArray(storedContacts) ? storedContacts : [];
 
         // Wenn eingeloggt, füge den aktuellen Benutzer zu den Kontakten hinzu
         if (isUserLoggedIn) {
-            let users = JSON.parse(localStorage.getItem('users')) || {};
+            let users = JSON.parse(localStorage.getItem('users'));
 
-            // console.log('Loaded users:', users);
+            console.log('Loaded users:', users);
 
-            // Erstellen oder aktualisieren des aktuellen Benutzerkontakts
-            if (users[currentUser.username]) {
+            if (users && users[currentUser.username]) {
                 let currentUserContact = {
                     id: currentUser.userId,
                     name: `${currentUser.firstName} ${currentUser.lastName}`,
                     email: currentUser.email,
-                    avatarid: 1 // Avatar-ID für den Benutzer
+                    avatarid: 1 // Hier kann eine entsprechende Avatar-ID für den Benutzer gesetzt werden
                 };
 
                 // Überprüfen, ob der Benutzer bereits in den Kontakten enthalten ist
@@ -200,75 +199,103 @@ async function loadContacts() {
                     contacts.push(currentUserContact);
                 }
             } else {
-                console.log('Current user data not found in users:', currentUser.username);
+                // Füge den aktuellen Benutzer zu users hinzu, wenn er nicht vorhanden ist
+                if (!users) {
+                    users = {};
+                }
+                users[currentUser.username] = {
+                    userId: currentUser.userId,
+                    email: currentUser.email,
+                    username: currentUser.username,
+                    firstName: currentUser.firstName,
+                    lastName: currentUser.lastName
+                };
+                localStorage.setItem('users', JSON.stringify(users));
+
+                console.log('Added current user to users:', users);
+
+                // Füge den aktuellen Benutzer zu den Kontakten hinzu
+                let currentUserContact = {
+                    id: currentUser.userId,
+                    name: `${currentUser.firstName} ${currentUser.lastName}`,
+                    email: currentUser.email,
+                    avatarid: 1 // Hier kann eine entsprechende Avatar-ID für den Benutzer gesetzt werden
+                };
+
+                let existingUserIndex = contacts.findIndex(contact => contact.id === currentUserContact.id);
+                if (existingUserIndex === -1) {
+                    contacts.push(currentUserContact);
+                }
             }
         }
 
-        // Sortieren der Kontakte alphabetisch nach dem Namen
-        contacts.sort((a, b) => a.name.localeCompare(b.name));
+        // Sortiere die Kontakte alphabetisch nach dem Namen
+        contacts.sort((a, b) => {
+            if (a.name < b.name) return -1;
+            if (a.name > b.name) return 1;
+            return 0;
+        });
 
-        // console.log('Sorted contacts:', contacts);
+        console.log('Sorted contacts:', contacts);
 
-        // HTML für die Kontakte erstellen
-        let contactsHTML = contacts.map(contact => createContactHTML(contact, users, currentUser)).join('');
+        let lastInitial;
 
-        // Kontakte in das DOM einfügen
+        function createContactHTML(contact) {
+            let initialLetterHTML = '';
+            let currentInitial = contact.name.charAt(0).toUpperCase();
+            if (currentInitial !== lastInitial) {
+                initialLetterHTML = `<div class="initial_letter">${currentInitial}</div>
+                <div class="line"><svg xmlns="http://www.w3.org/2000/svg" width="354" height="2" viewBox="0 0 354 2" fill="none"><path d="M1 1H353" stroke="#D1D1D1" stroke-linecap="round"/></svg></div>`;
+                lastInitial = currentInitial;
+            }
+
+            if (currentUser && users && users[currentUser.username] && users[currentUser.username].firstName) {
+                if (contact.name === users[currentUser.username].firstName) {
+                    contact.name += " (You)";
+                }
+            }
+
+            return `
+                ${initialLetterHTML}
+                <div class="contactentry" id="${contact.id}">
+                    <div class="avatar">
+                        <img src="img/Ellipse5-${contact.avatarid}.svg"></img>
+                        <div class="avatar_initletter">${contact.name.split(' ').map(n => n[0].toUpperCase()).join('')}</div>
+                    </div>
+                    <div class="contactentry_info">
+                        <div class="contactentry_name">${contact.name}</div>
+                        <div class="contactentry_email">${contact.email}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let contactsHTML = '';
+
+        for (let contact of contacts) {
+            contactsHTML += createContactHTML(contact);
+        }
+
         document.querySelector('.contacts_container').innerHTML = contactsHTML;
 
-        // Event Listener nach dem Rendern der Kontakte hinzufügen
-        contacts.forEach(contact => {
+        // Add event listeners after rendering contacts
+        for (let contact of contacts) {
             let contactElement = document.getElementById(contact.id);
 
-            if (contactElement) {
-                contactElement.addEventListener('click', () => {
-                    // Alle Kontaktelemente zurücksetzen
-                    document.querySelectorAll('.contactentry').forEach(entry => {
-                        entry.classList.remove('contact_selected');
-                    });
+            contactElement.addEventListener('click', function () {
+                let contactEntries = document.querySelectorAll('.contactentry');
+                for (let entry of contactEntries) {
+                    entry.classList.remove('contact_selected');
+                }
 
-                    // Das ausgewählte Kontaktelement markieren
-                    contactElement.classList.add('contact_selected');
-
-                    console.log('Selected contact:', contact);
-                    floatingContactRender(contact.id);
-                });
-            }
-        });
+                contactElement.classList.add('contact_selected');
+                console.log('Sorted contacts:', contacts);
+                floatingContactRender(contact.id);
+            });
+        }
     } catch (error) {
         console.error('Error loading contacts:', error);
     }
-}
-
-function createContactHTML(contact, users, currentUser) {
-    let lastInitial = ''; // Hier wird die Variable initialisiert
-
-    let initialLetterHTML = '';
-    let currentInitial = contact.name.charAt(0).toUpperCase();
-    if (currentInitial !== lastInitial) {
-        initialLetterHTML = `<div class="initial_letter">${currentInitial}</div>
-        <div class="line"><svg xmlns="http://www.w3.org/2000/svg" width="354" height="2" viewBox="0 0 354 2" fill="none"><path d="M1 1H353" stroke="#D1D1D1" stroke-linecap="round"/></svg></div>`;
-        lastInitial = currentInitial;
-    }
-
-    if (currentUser && users && users[currentUser.username] && users[currentUser.username].firstName) {
-        if (contact.name === `${currentUser.firstName} ${currentUser.lastName}`) {
-            contact.name += " (You)";
-        }
-    }
-
-    return `
-        ${initialLetterHTML}
-        <div class="contactentry" id="${contact.id}">
-            <div class="avatar">
-                <img src="img/Ellipse5-${contact.avatarid}.svg"></img>
-                <div class="avatar_initletter">${contact.name.split(' ').map(n => n[0].toUpperCase()).join('')}</div>
-            </div>
-            <div class="contactentry_info">
-                <div class="contactentry_name">${contact.name}</div>
-                <div class="contactentry_email">${contact.email}</div>
-            </div>
-        </div>
-    `;
 }
 
 
@@ -574,10 +601,11 @@ async function floatingContactRender(contactid) {
         let currentUser = JSON.parse(localStorage.getItem('currentUser'));
         let isUserLoggedIn = !!currentUser;
         let users;
-        let contacts = [];
 
         console.log('Current user:', currentUser);
         console.log('Is user logged in:', isUserLoggedIn);
+
+        let contacts = [];
 
         // Load contacts from localStorage
         let storedContacts = JSON.parse(localStorage.getItem('contacts'));
@@ -595,8 +623,17 @@ async function floatingContactRender(contactid) {
                 return;
             }
 
+            // Add currentUser to contacts if not already present
+            // let currentUserContact = {
+            //     id: currentUser.userId,
+            //     name: `${currentUser.firstName} ${currentUser.lastName}`,
+            //     email: currentUser.email,
+            //     avatarid: 1 // Adjust the avatar ID accordingly
+            // };
+
             let existingUserIndex = contacts.findIndex(contact => contact.id === currentUser.userId.toString());
             if (existingUserIndex === -1) {
+                // Fügen Sie den aktuellen Benutzer nur hinzu, wenn er nicht bereits in der Liste ist
                 contacts.push({
                     id: currentUser.userId.toString(),
                     name: `${currentUser.firstName} ${currentUser.lastName}`,
@@ -612,72 +649,69 @@ async function floatingContactRender(contactid) {
         if (contact) {
             // Modify contact name if currentUser matches contact
             if (currentUser && users && users[currentUser.username] && users[currentUser.username].firstName) {
-                if (contact.name === `${currentUser.firstName} ${currentUser.lastName}`) {
+                if (contact.name === users[currentUser.username].firstName) {
                     contact.name += " (You)";
                 }
             }
 
+
+            console.log('Sorted contacts:', contacts);
             let floating_contactHTML = `
-                <div class="floating_contact">
-                    <div class="floating_contact_avatar">
-                        <img src="img/Ellipse5-${contact.avatarid}.svg" alt="Avatar"></img>
-                        <div class="floating_contact_initletter">${contact.name.charAt(0).toUpperCase()}</div>
-                    </div>
-                    <div class="column">
-                        <div class="floating_contact_name">${contact.name}</div>
-                        <div class="row">
-                            <div class="floating_contact_buttons" onclick="editContact('${contact.id}')">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/>
-                                </svg>
-                                Edit
-                            </div>
-                            <div class="floating_contact_buttons" onclick="delContact('${contact.id}')">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/>
-                                </svg>
-                                Delete
-                            </div>
-                        </div>
-                    </div>
+        <div class="floating_contact">
+            <div class="floating_contact_avatar">
+                <img src="img/Ellipse5-${contact.avatarid}.svg"></img>
+                    <div class="floating_contact_initletter">${contact.name.charAt(0).toUpperCase()}</div>
+                </img>
+            </div>
+            <div class="column">
+            <div class="floating_contact_name">${contact.name}</div>
+            <div class="row">
+                <div class="floating_contact_buttons" onclick="editContact('${contact.id}')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="edit"><mask id="mask0_130935_4276" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4276)"><path id="edit_2" d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/></g></g>
+                </svg>
+                    Edit
                 </div>
-                <br>
-                <div class="floating_contact_info">Contact Information</div>
-                <br>
-                <div class="floating_contact_email">
-                    <div class="floating_contact_emailtext">Email</div>
-                    <div class="floating_contact_emailadresse">${contact.email}</div>
+                <div class="floating_contact_buttons" onclick="delContact('${contact.id}')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="delete"><mask id="mask0_130935_4270" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4270)"><path id="delete_2" d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/></g></g>
+                </svg>
+                    Delete
                 </div>
-                <br>
-                <div class="floating_contact_phone">
-                    <div class="floating_contact_phonetext">Phone</div>
-                    <div class="floating_contact_phonenumber">${contact.phone}</div>
-                </div>
-                <div class="more_button_mobile" onclick='showMoreMenu(event)'><img src="img/more.svg" alt="More"></img></div>
-                <div class="contact-editmenu_mobile">
-                    <div class="contact-editmenu_entriy_mobile" onclick="editContact('${contact.id}')">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/>
-                        </svg>
-                        Edit
-                    </div>
-                    <div class="contact-editmenu_entriy_mobile" onclick="delContact('${contact.id}')">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/>
-                        </svg>
-                        Delete
-                    </div>
-                </div>
-            `;
+            </div>
+            </div>
+        </div>
+        <br>
+        <div class="floating_contact_info">Contact Information</div>
+        <br>
+        <div class="floating_contact_email">
+            <div class="floating_contact_emailtext">Email</div>
+            <div class="floating_contact_emailadresse">${contact.email}</div>
+        </div>
+        <br>
+        <div class="floating_contact_phone">
+            <div class="floating_contact_phonetext">Phone</div>
+            <div class="floating_contact_phonenumber">${contact.phone}</div>
+        </div>
+        <div class="more_button_mobile" onclick='showMoreMenu(event)'><img src="img/more.svg"></img></div>
+        <div class="contact-editmenu_mobile">
+            <div class="contact-editmenu_entriy_mobile" onclick="editContact('${contact.id}')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="edit"><mask id="mask0_130935_4276" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4276)"><path id="edit_2" d="M5 19H6.4L15.025 10.375L13.625 8.975L5 17.6V19ZM19.3 8.925L15.05 4.725L16.45 3.325C16.8333 2.94167 17.3042 2.75 17.8625 2.75C18.4208 2.75 18.8917 2.94167 19.275 3.325L20.675 4.725C21.0583 5.10833 21.2583 5.57083 21.275 6.1125C21.2917 6.65417 21.1083 7.11667 20.725 7.5L19.3 8.925ZM17.85 10.4L7.25 21H3V16.75L13.6 6.15L17.85 10.4Z" fill="#2A3647"/></g></g>
+            </svg>
+                Edit
+            </div>
+            <div class="contact-editmenu_entriy_mobile" onclick="delContact('${contact.id}')">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="delete"><mask id="mask0_130935_4270" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect id="Bounding box" width="24" height="24" fill="#D9D9D9"/></mask><g mask="url(#mask0_130935_4270)"><path id="delete_2" d="M7 21C6.45 21 5.97917 20.8042 5.5875 20.4125C5.19583 20.0208 5 19.55 5 19V6C4.71667 6 4.47917 5.90417 4.2875 5.7125C4.09583 5.52083 4 5.28333 4 5C4 4.71667 4.09583 4.47917 4.2875 4.2875C4.47917 4.09583 4.71667 4 5 4H9C9 3.71667 9.09583 3.47917 9.2875 3.2875C9.47917 3.09583 9.71667 3 10 3H14C14.2833 3 14.5208 3.09583 14.7125 3.2875C14.9042 3.47917 15 3.71667 15 4H19C19.2833 4 19.5208 4.09583 19.7125 4.2875C19.9042 4.47917 20 4.71667 20 5C20 5.28333 19.9042 5.52083 19.7125 5.7125C19.5208 5.90417 19.2833 6 19 6V19C19 19.55 18.8042 20.0208 18.4125 20.4125C18.0208 20.8042 17.55 21 17 21H7ZM7 6V19H17V6H7ZM9 16C9 16.2833 9.09583 16.5208 9.2875 16.7125C9.47917 16.9042 9.71667 17 10 17C10.2833 17 10.5208 16.9042 10.7125 16.7125C10.9042 16.5208 11 16.2833 11 16V9C11 8.71667 10.9042 8.47917 10.7125 8.2875C10.5208 8.09583 10.2833 8 10 8C9.71667 8 9.47917 8.09583 9.2875 8.2875C9.09583 8.47917 9 8.71667 9 9V16ZM13 16C13 16.2833 13.0958 16.5208 13.2875 16.7125C13.4792 16.9042 13.7167 17 14 17C14.2833 17 14.5208 16.9042 14.7125 16.7125C14.9042 16.5208 15 16.2833 15 16V9C15 8.71667 14.9042 8.47917 14.7125 8.2875C14.5208 8.09583 14.2833 8 14 8C13.7167 8 13.4792 8.09583 13.2875 8.2875C13.0958 8.47917 13 8.71667 13 9V16Z" fill="#2A3647"/></g></g>
+            </svg>
+                Delete
+            </div>
+        </div>
+        `;
 
             let floating_contactElement = document.getElementById("floating_contact");
 
-            // Löschen Sie alle vorhandenen Kinder des floating_contactElements
             while (floating_contactElement.firstChild) {
                 floating_contactElement.removeChild(floating_contactElement.firstChild);
             }
 
-            // Fügen Sie das neue HTML-Element hinzu
             let floating_contactDiv = document.createElement("div");
             floating_contactDiv.innerHTML = floating_contactHTML;
             floating_contactElement.appendChild(floating_contactDiv);
@@ -694,7 +728,7 @@ async function floatingContactRender(contactid) {
  * It loads the contacts from the local storage and displays them on the contacts.html page.
  */
 document.addEventListener('DOMContentLoaded', async (event) => {
-    // await initUser();
+    await initUser();
     loadContacts();
 });
 
