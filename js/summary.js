@@ -105,7 +105,7 @@ function formatDate(date) {
  * get data from backend server and render the content
  */
 async function initSummary() {
-  await loadData();
+  // await loadData();
   await countTasks();
   renderContent();
 }
@@ -113,13 +113,19 @@ async function initSummary() {
 /**
  * fetch users data from backend server to global variables
  */
-async function loadData() {
-  try {
-    users = JSON.parse(await getItem('users'));
-  } catch (e) {
-    console.error('Loading Data error:', e);
-  }
-}
+// async function loadData() {
+//   try {
+//     let usersData = await getItem('users');
+//     if (typeof usersData === 'string') {
+//       users = JSON.parse(usersData);
+//     } else {
+//       users = usersData; // Falls usersData bereits ein Objekt ist
+//     }
+//     console.log(users);
+//   } catch (e) {
+//     console.error('Loading Data error:', e);
+//   }
+// }
 
 /**
  * change the greeting text to the current users first & second name or add "Guest" if not logged in

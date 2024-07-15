@@ -13,7 +13,7 @@ users = [];
  */
 async function initHead() {
     await loadUsers();
-    initUserID();  // Initialize user ID
+    // initUserID();  // Initialize user ID
     userInitials();
 }
 
@@ -81,15 +81,19 @@ async function logout() {
 function userInitials() {
     let isUserFound = false;
     let currentUserId = localStorage.getItem('userId'); // Benutzer-ID
+    console.log('Current User ID from localStorage:', currentUserId); // Debugging log
     for (let i = 0; i < users.length; i++) {
         let user = users[i];
+        console.log('Checking user:', user); // Debugging log
         if (user["id"] == currentUserId) { // Vergleich als Zahl, da localStorage immer als String speichert
             document.getElementById("userInitials").innerHTML = `${user["username"][0].toUpperCase()}`;
+            console.log('Logged in user found:', user); // Debugging log
             isUserFound = true;
             break;
         }
     }
     if (!isUserFound) {
         document.getElementById("userInitials").innerHTML = "G"; // Default-Wert, falls Benutzer nicht gefunden wird
+        console.log('No user found. Default initials set to "G"'); // Debugging log
     }
 }

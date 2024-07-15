@@ -15,45 +15,55 @@ async function initUser() {
     initUserID();
 }
 
-/** initialize the current user id
+/**
+ * initialize the current user id
  * 
  * @returns the current user ID of the logged in user. If not logged in, currentUser is "Guest"
  */
-
 function initUserID() {
-    console.log('Users array in initUserID:', users);  // Überprüfen Sie das users-Array
+    let currentUserId = localStorage.getItem('userId');
+    console.log('Current User ID from localStorage:', currentUserId);
+
+    let isUserFound = false;
+
     for (let i = 0; i < users.length; i++) {
         let user = users[i];
         console.log('Checking user:', user);
-        if (user["isYou"]) {
-            currentUser = user["userID"];
+
+        if (user["id"] == currentUserId) { // Vergleich als Zahl, da localStorage immer als String speichert
+            currentUser = user["id"];
             isUserLoggedIn = true;
-            console.log('Logged in as:', currentUser);  // Logging the current user ID
-            console.log('isUserLoggedIn:', isUserLoggedIn); // Logging the isUserLoggedIn status
-            return;
+            console.log('Logged in as:', currentUser);
+            console.log('Logged in user found:', user);
+            console.log('isUserLoggedIn:', isUserLoggedIn);
+            isUserFound = true;
+            break;
         }
     }
 
-    // If no user is logged in, set the current user to 'Guest'
-    currentUser = 'Guest';
-    // isUserLoggedIn = false;  // Ensure isUserLoggedIn is explicitly set to false here
-    console.log('Logged in as:', currentUser);  // Logging 'Guest' if no user is logged in
-    console.log('isUserLoggedIn:', isUserLoggedIn); // Logging the isUserLoggedIn status
+    if (!isUserFound) {
+        // If no user is logged in, set the current user to 'Guest'
+        currentUser = 'Guest';
+        isUserLoggedIn = false;
+        console.log('No user found. Logged in as:', currentUser);
+        console.log('isUserLoggedIn:', isUserLoggedIn);
+    }
 }
+
 
 /**
  * loads the users from our storage
  */
 async function loadData() {
     try {
-        let usersData = await getItem('users');
-        if (typeof usersData === 'string') {
-            users = JSON.parse(usersData);
-        } else {
-            users = usersData; // Falls usersData bereits ein Objekt ist
-        }
-        console.log(users);
+      let usersData = await getItem('users');
+      if (typeof usersData === 'string') {
+        users = JSON.parse(usersData);
+      } else {
+        users = usersData; // Falls usersData bereits ein Objekt ist
+      }
+      console.log(users);
     } catch (e) {
-        console.error('Loading Data error:', e);
+      console.error('Loading Data error:', e);
     }
-}
+  }
